@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Student Data Dashboard - Ready to run
 ------------------------------------
 Features:
@@ -14,3 +15,6 @@ Quick start:
 4. python manage.py migrate
 5. python manage.py runserver
 6. Open http://127.0.0.1:8000/ and upload student_data_with_edge_cases.xlsx (included)
+=======
+# CSI-Project-Student-Dashboard
+>>>>>>> 202b980c50fad12cdbf6968be7ee54f77733a834
