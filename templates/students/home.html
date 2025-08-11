@@ -1,0 +1,181 @@
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Student Data Dashboard</title>
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+      <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+      <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+      <style>
+        body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial; padding:20px; background:#f3f4f6;}
+        .card{background:white;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,0.06);max-width:1200px;margin:auto;}
+        header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+        h1{font-size:20px;margin:0;}
+        .controls{display:flex;gap:8px;align-items:center;}
+        .btn{padding:8px 12px;border-radius:8px;border:none;background:#2563eb;color:white;cursor:pointer;}
+        .btn.secondary{background:#10b981;}
+        .small{font-size:13px;padding:6px 8px;}
+        .upload-area{border:2px dashed #e5e7eb;padding:14px;border-radius:8px;text-align:center;color:#374151;}
+        label{font-weight:600;}
+        textarea{width:100%;height:120px;border-radius:8px;padding:8px;border:1px solid #e5e7eb}
+        select{padding:8px;border-radius:8px;border:1px solid #e5e7eb}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <header>
+          <h1>Student Data Dashboard</h1>
+          <div class="controls">
+            <form id="uploadForm" action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+              {% csrf_token %}
+              {{ form.file }} <button class="btn small" type="submit">Upload</button>
+            </form>
+          </div>
+        </header>
+
+        {% if error %}
+          <div style="color:red">{{ error }}</div>
+        {% endif %}
+
+        {% if data %}
+          <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <input id="globalSearch" placeholder="Search..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #e5e7eb;">
+            <button id="exportBtn" class="btn small">Export CSV</button>
+            <button id="emailBtn" class="btn small secondary">Send Emails</button>
+          </div>
+
+          <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <label>Branch:</label>
+            <select id="branchFilter"><option value="">All Branches</option></select>
+            <label>Year:</label>
+            <select id="yearFilter"><option value="">All Years</option></select>
+            <label>Interests:</label>
+            <select id="interestFilter"><option value="">All Interests</option></select>
+          </div>
+
+          <table id="studentsTable" class="display stripe" style="width:100%">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="selectAll"></th>
+                {% for col in columns %}
+                  <th>{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <div id="emailModal" style="display:none;margin-top:16px;">
+            <label>Subject</label>
+            <input id="emailSubject" placeholder="Subject" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e5e7eb;">
+            <label style="margin-top:8px;">Message (use {name} to personalize)</label>
+            <textarea id="emailMessage">Hello {name},
+
+This is a message from the Student Dashboard.</textarea>
+            <div style="margin-top:8px;">
+              <button id="sendEmails" class="btn small secondary">Send</button>
+              <button id="cancelEmail" class="btn small">Cancel</button>
+            </div>
+          </div>
+
+          <script>
+            const data = {{ data|safe }};
+            const columns = [{ data: null, defaultContent: '' , orderable:false, searchable:false, render: function(){ return '<input type="checkbox" class="row-select">'; }}];
+            {% for col in columns %}
+              columns.push({data: '{{ col }}'});
+            {% endfor %}
+
+            function uniqueValues(arr, key){
+              const s = new Set();
+              arr.forEach(it => {
+                const v = it[key];
+                if(v !== null && v !== undefined && String(v).trim() !== '') s.add(String(v).trim());
+              });
+              return Array.from(s);
+            }
+
+            $(document).ready(function(){
+              const table = $('#studentsTable').DataTable({
+                data: data,
+                columns: columns,
+                order: [[1, 'asc']],
+                pageLength: 25,
+              });
+
+              // populate filters
+              const branches = uniqueValues(data, 'Branch').sort();
+              branches.forEach(b => $('#branchFilter').append($('<option>').val(b).text(b)));
+              const years = uniqueValues(data, 'Year').sort();
+              years.forEach(y => $('#yearFilter').append($('<option>').val(y).text(y)));
+              const interests = uniqueValues(data, 'Interests').sort();
+              interests.forEach(i => $('#interestFilter').append($('<option>').val(i).text(i)));
+
+              // custom exact-match filter
+              $.fn.dataTable.ext.search.push(function(settings, searchData, index, rowData, counter){
+                const branchVal = $('#branchFilter').val();
+                const yearVal = $('#yearFilter').val();
+                const interestVal = $('#interestFilter').val();
+                if(branchVal && String(rowData['Branch']).trim() !== branchVal) return false;
+                if(yearVal && String(rowData['Year']).trim() !== yearVal) return false;
+                if(interestVal && String(rowData['Interests']).trim() !== interestVal) return false;
+                return true;
+              });
+
+              function applyFilters(){ table.draw(); }
+
+              $('#branchFilter, #yearFilter, #interestFilter').on('change', applyFilters);
+              $('#globalSearch').on('input', function(){ table.search(this.value).draw(); });
+
+              $('#exportBtn').click(function(){
+                const branch = $('#branchFilter').val() || '';
+                const year = $('#yearFilter').val() || '';
+                const interest = $('#interestFilter').val() || '';
+                const url = '{% url "export_csv" %}?branch=' + encodeURIComponent(branch) + '&year=' + encodeURIComponent(year) + '&interest=' + encodeURIComponent(interest);
+                window.location = url;
+              });
+
+              $('#selectAll').on('change', function(){
+                const checked = $(this).is(':checked');
+                $('#studentsTable tbody .row-select').prop('checked', checked);
+              });
+
+              $('#emailBtn').click(function(){ $('#emailModal').show(); $('html, body').animate({scrollTop: $(document).height()}, 300); });
+              $('#cancelEmail').click(function(){ $('#emailModal').hide(); });
+
+              $('#sendEmails').click(function(){
+                const selected = [];
+                $('#studentsTable tbody tr').each(function(){
+                  const $row = $(this);
+                  if($row.find('.row-select').is(':checked')){
+                    const rowData = table.row(this).data();
+                    selected.push(rowData);
+                  }
+                });
+                if(selected.length === 0){ alert('Select at least one student.'); return; }
+                const payload = {
+                  subject: $('#emailSubject').val(),
+                  message: $('#emailMessage').val(),
+                  selected: selected
+                };
+                fetch('{% url "send_email" %}', {
+                  method: 'POST',
+                  headers: {'Content-Type':'application/json','X-CSRFToken': '{{ csrf_token }}'},
+                  body: JSON.stringify(payload)
+                }).then(r => r.json()).then(res => {
+                  alert('Emails sent (check server console). Sent count: ' + (res.sent || 0));
+                  $('#emailModal').hide();
+                }).catch(e => { alert('Failed to send'); });
+              });
+
+            });
+          </script>
+        {% else %}
+          <div class="upload-area">
+            <p>No data loaded. Upload your Excel (.xlsx) or CSV file using the form above.</p>
+            <p>Example included: <strong>student_data_with_edge_cases.xlsx</strong></p>
+          </div>
+        {% endif %}
+      </div>
+    </body>
+    </html>
