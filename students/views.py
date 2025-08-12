@@ -17,7 +17,7 @@ def read_into_df(f):
             raise ValueError('Unsupported file type')
     except Exception as e:
         raise
-    # normalize columns
+   
     df.columns = [str(c).strip() for c in df.columns]
     df = df.fillna('')
     return df
@@ -26,14 +26,14 @@ def home(request):
     form = UploadFileForm()
     columns = []
     data = None
-    # load from session if exists
+   
     if request.session.get('student_data'):
         try:
             df = pd.read_json(request.session['student_data'])
             columns = list(df.columns)
             data = df.to_dict(orient='records')
         except Exception:
-            # fallback: clear session
+           
             request.session.pop('student_data', None)
 
     return render(request, 'students/home.html', {'form': form, 'columns': columns, 'data': data})
@@ -80,7 +80,7 @@ def export_csv(request):
 
 @csrf_exempt
 def send_email(request):
-    # expects JSON payload {subject, message, selected: [rowObjects...]}
+   
     if request.method != 'POST':
         return JsonResponse({'error':'POST required'}, status=400)
     try:
