@@ -103,7 +103,7 @@ This is a message from the Student Dashboard.</textarea>
                 pageLength: 25,
               });
 
-              // populate filters
+
               const branches = uniqueValues(data, 'Branch').sort();
               branches.forEach(b => $('#branchFilter').append($('<option>').val(b).text(b)));
               const years = uniqueValues(data, 'Year').sort();
@@ -111,7 +111,7 @@ This is a message from the Student Dashboard.</textarea>
               const interests = uniqueValues(data, 'Interests').sort();
               interests.forEach(i => $('#interestFilter').append($('<option>').val(i).text(i)));
 
-              // custom exact-match filter
+            
               $.fn.dataTable.ext.search.push(function(settings, searchData, index, rowData, counter){
                 const branchVal = $('#branchFilter').val();
                 const yearVal = $('#yearFilter').val();
